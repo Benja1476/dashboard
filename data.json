@@ -1,0 +1,145 @@
+[
+  {
+    "date": "2025-05",
+    "item": "น้ำมันหล่อลื่น A",
+    "qty": 200,
+    "category": "A",
+    "doi": 25,
+    "fsn": "Fast",
+    "turnover": 80,
+    "aging": 60,
+    "action": "รักษาระดับ"
+  },
+  {
+    "date": "2025-05",
+    "item": "อะไหล่ B",
+    "qty": 150,
+    "category": "B",
+    "doi": 45,
+    "fsn": "Slow",
+    "turnover": 45,
+    "aging": 120,
+    "action": "ระบายสต็อก"
+  },
+  {
+    "date": "2025-05",
+    "item": "กล่องบรรจุ C",
+    "qty": 100,
+    "category": "C",
+    "doi": 90,
+    "fsn": "Non-Moving",
+    "turnover": 10,
+    "aging": 380,
+    "action": "พิจารณาคัดออก"
+  },
+  {
+    "date": "2025-05",
+    "item": "สารเคมี X",
+    "qty": 300,
+    "category": "A",
+    "doi": 20,
+    "fsn": "Fast",
+    "turnover": 70,
+    "aging": 50,
+    "action": "เพิ่มการสั่งซื้อ"
+  },
+  {
+    "date": "2025-05",
+    "item": "ชิ้นส่วนสำรอง Y",
+    "qty": 50,
+    "category": "B",
+    "doi": 60,
+    "fsn": "Slow",
+    "turnover": 35,
+    "aging": 180,
+    "action": "ลดปริมาณ"
+  },
+  {
+    "date": "2025-05",
+    "item": "อุปกรณ์ไฟฟ้า Z",
+    "qty": 75,
+    "category": "C",
+    "doi": 95,
+    "fsn": "Non-Moving",
+    "turnover": 5,
+    "aging": 400,
+    "action": "พิจารณาขายทิ้ง"
+  },
+  {
+    "date": "2025-05",
+    "item": "สินค้าทดลอง 1",
+    "qty": 120,
+    "category": "A",
+    "doi": 30,
+    "fsn": "Fast",
+    "turnover": 55,
+    "aging": 40,
+    "action": "ติดตามผล"
+  },
+  {
+    "date": "2025-05",
+    "item": "สินค้าทดลอง 2",
+    "qty": 60,
+    "category": "B",
+    "doi": 50,
+    "fsn": "Slow",
+    "turnover": 30,
+    "aging": 160,
+    "action": "ระบายช้า"
+  },
+  {
+    "date": "2025-05",
+    "item": "สินค้าทดลอง 3",
+    "qty": 30,
+    "category": "C",
+    "doi": 85,
+    "fsn": "Non-Moving",
+    "turnover": 12,
+    "aging": 365,
+    "action": "ปรับยอด"
+  },
+  {
+    "date": "2025-05",
+    "item": "อุปกรณ์ใหม่ Q",
+    "qty": 250,
+    "category": "A",
+    "doi": 28,
+    "fsn": "Fast",
+    "turnover": 60,
+    "aging": 90,
+    "action": "เร่งใช้"
+  },
+  {
+    "date": "2025-06",
+    "item": "น้ำมันหล่อลื่น A",
+    "qty": 180,
+    "category": "A",
+    "doi": 20,
+    "fsn": "Fast",
+    "turnover": 82,
+    "aging": 40,
+    "action": "สั่งเพิ่ม"
+  },
+  {
+    "date": "2025-06",
+    "item": "อะไหล่ B",
+    "qty": 160,
+    "category": "B",
+    "doi": 50,
+    "fsn": "Slow",
+    "turnover": 42,
+    "aging": 130,
+    "action": "คงสภาพ"
+  },
+  {
+    "date": "2025-06",
+    "item": "กล่องบรรจุ C",
+    "qty": 90,
+    "category": "C",
+    "doi": 100,
+    "fsn": "Non-Moving",
+    "turnover": 8,
+    "aging": 420,
+    "action": "ล้างสต็อก"
+  }
+]
