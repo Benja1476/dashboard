@@ -97,6 +97,15 @@
     let rawData = [];
     let charts = {};
 
+    // สำหรับแปลง Turnover เป็นชื่อภาษาไทย
+    const turnoverLabelMap = {
+      'Monthly': 'รายเดือน',
+      'Quarterly': 'รายไตรมาส',
+      'Yearly': 'รายปี',
+      'Weekly': 'รายสัปดาห์',
+      'ไม่ระบุ': 'ไม่ระบุ'
+    };
+
     async function loadData() {
       try {
         const res = await fetch('data.json');
@@ -150,7 +159,7 @@
         }]
       });
 
-      // DOI Distribution (grouped text)
+      // DOI Distribution (กลุ่มคำ)
       const doiGroup = {};
       data.forEach(d => {
         const key = d.doi || 'ไม่ระบุ';
@@ -165,14 +174,15 @@
         }]
       });
 
-      // Turnover Rate (grouped text)
+      // Turnover Rate (กลุ่มคำ + แสดงภาษาไทย)
       const turnoverGroup = {};
       data.forEach(d => {
         const key = d.turnover || 'ไม่ระบุ';
         turnoverGroup[key] = (turnoverGroup[key] || 0) + 1;
       });
+      const turnoverLabels = Object.keys(turnoverGroup).map(k => turnoverLabelMap[k] || k);
       drawOrUpdateChart('chartTurnover', 'doughnut', {
-        labels: Object.keys(turnoverGroup),
+        labels: turnoverLabels,
         datasets: [{
           data: Object.values(turnoverGroup),
           backgroundColor: ['#007bff', '#ffc107', '#28a745', '#dc3545', '#6c757d']
@@ -235,8 +245,7 @@
       loadData();
     });
 
-    // โหลดข้อมูลตอนเปิดหน้า
-    loadData();
+    loadData(); // เรียกครั้งแรกเมื่อเปิดหน้า
   </script>
 </body>
 </html>
