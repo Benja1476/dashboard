@@ -135,9 +135,12 @@
         const res = await fetch('https://raw.githubusercontent.com/Benja1476/dashboard/5c26e64ebee875a295380b00559c4e194737f849/data.json');
         rawData = await res.json();
 
-        months = [...new Set(rawData.map(d => d.date))].sort();
         const selector = document.getElementById('monthSelector');
         selector.innerHTML = "";
+
+        const extractedMonths = [...new Set(rawData.map(d => d.date))].sort();
+        months = extractedMonths;
+
         months.forEach(m => {
           const opt = document.createElement('option');
           opt.value = m;
@@ -146,7 +149,9 @@
         });
 
         selector.onchange = () => updateDashboard(selector.value);
-        if (!selector.value && months.length > 0) selector.value = months[0];
+        if (!selector.value && months.length > 0) {
+          selector.value = months[0];
+        }
 
         updateDashboard(selector.value);
       } catch (error) {
@@ -154,7 +159,141 @@
       }
     }
 
-    // (ฟังก์ชัน updateDashboard และ drawOrUpdateChart คงเดิม)
+    function updateDashboard(month) {
+      const data = rawData.filter(d => d.date === month);
+
+      const topTable = document.querySelector('#topTable tbody');
+      topTable.innerHTML = data
+        .sort((a,b) => b.qty - a.qty)
+        .slice(0, 10)
+        .map(r => `<tr><td>${r.item}</td><td>${r.qty}</td></tr>`).join('');
+
+      const recTable = document.querySelector('#recTable tbody');
+      recTable.innerHTML = data
+        .slice(0, 5)
+        .map(r => `<tr><td>${r.item}</td><td>${r.action || '-'}</td></tr>`).join('');
+
+      const abcCount = {A:0, B:0, C:0};
+      data.forEach(d => {
+        if (d.category) abcCount[d.category] = (abcCount[d.category] || 0) + 1;
+      });
+      drawOrUpdateChart('chartABC', 'doughnut', {
+        labels: ['A', 'B', 'C'],
+        datasets: [{
+          data: [abcCount.A, abcCount.B, abcCount.C],
+          backgroundColor: ['#28a745', '#ffc107', '#dc3545']
+        }]
+      });
+
+      const doiGroup = {};
+      data.forEach(d => {
+        const doi = isNaN(d.doi) ? "ไม่ระบุ" : +d.doi;
+        const group = typeof doi === 'number' && !isNaN(doi) ? `DOI ${Math.round(doi)}` : doi;
+        doiGroup[group] = (doiGroup[group] || 0) + 1;
+      });
+      drawOrUpdateChart('chartDOI', 'bar', {
+        labels: Object.keys(doiGroup),
+        datasets: [{
+          label: 'จำนวนรายการ',
+          data: Object.values(doiGroup),
+          backgroundColor: '#17a2b8'
+        }]
+      });
+
+      const turnoverGroup = {};
+      data.forEach(d => {
+        const key = d.turnover || 'ไม่ระบุ';
+        turnoverGroup[key] = (turnoverGroup[key] || 0) + 1;
+      });
+      const turnoverLabels = Object.keys(turnoverGroup).map(k => turnoverLabelMap[k] || k);
+      drawOrUpdateChart('chartTurnover', 'doughnut', {
+        labels: turnoverLabels,
+        datasets: [{
+          data: Object.values(turnoverGroup),
+          backgroundColor: ['#007bff', '#ffc107', '#28a745', '#dc3545', '#6c757d']
+        }]
+      });
+
+      const fsnMap = { F: "Fast", S: "Slow", N: "Non-Moving", "ไม่ระบุ": "ไม่ระบุ" };
+      const fsnCount = { Fast: 0, Slow: 0, "Non-Moving": 0, "ไม่ระบุ": 0 };
+      data.forEach(d => {
+        const label = fsnMap[d.fsn] || "ไม่ระบุ";
+        fsnCount[label]++;
+      });
+      drawOrUpdateChart('chartFSN', 'pie', {
+        labels: Object.keys(fsnCount),
+        datasets: [{
+          data: Object.values(fsnCount),
+          backgroundColor: ['#20c997', '#fd7e14', '#6c757d', '#adb5bd']
+        }]
+      });
+
+      const agingRanges = ['0-90 วัน', '91-180 วัน', '181-360 วัน', '360+'];
+      const agingCounts = [0, 0, 0, 0];
+      data.forEach(d => {
+        if (d.aging <= 90) agingCounts[0]++;
+        else if (d.aging <= 180) agingCounts[1]++;
+        else if (d.aging <= 360) agingCounts[2]++;
+        else agingCounts[3]++;
+      });
+      drawOrUpdateChart('chartAging', 'bar', {
+        labels: agingRanges,
+        datasets: [{
+          label: 'จำนวนรายการ',
+          data: agingCounts,
+          backgroundColor: '#6f42c1'
+        }]
+      });
+
+      // New: Inventory Value Trend
+      const monthlyValue = {};
+      rawData.forEach(d => {
+        if (!d.value || !d.date) return;
+        monthlyValue[d.date] = (monthlyValue[d.date] || 0) + d.value;
+      });
+      drawOrUpdateChart('chartValueTrend', 'line', {
+        labels: Object.keys(monthlyValue),
+        datasets: [{
+          label: 'Inventory Value',
+          data: Object.values(monthlyValue),
+          borderColor: '#0d6efd',
+          fill: false
+        }]
+      });
+
+      // New: Overstock vs Understock
+      let over = 0, under = 0;
+      data.forEach(d => {
+        if (d.stock_status === 'Overstock') over++;
+        else if (d.stock_status === 'Understock') under++;
+      });
+      drawOrUpdateChart('chartStockLevel', 'doughnut', {
+        labels: ['Overstock', 'Understock'],
+        datasets: [{
+          data: [over, under],
+          backgroundColor: ['#6610f2', '#e83e8c']
+        }]
+      });
+    }
+
+    function drawOrUpdateChart(id, type, data) {
+      if (charts[id]) {
+        charts[id].data = data;
+        charts[id].update();
+      } else {
+        charts[id] = new Chart(document.getElementById(id), {
+          type,
+          data,
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: true, position: 'bottom' },
+              tooltip: { enabled: true }
+            }
+          }
+        });
+      }
+    }
 
     document.getElementById("refreshBtn").addEventListener("click", () => loadData());
     loadData();
