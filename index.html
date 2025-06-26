@@ -107,13 +107,13 @@
     </div>
 
     <div class="card" style="grid-column: span 2">
-      <h3>Inventory Value Trend</h3>
-      <canvas id="chartValueTrend"></canvas>
+      <h3>Inventory Insights</h3>
+      <canvas id="chartInsights"></canvas>
     </div>
 
     <div class="card">
-      <h3>Overstock vs Understock</h3>
-      <canvas id="chartStockLevel"></canvas>
+      <h3>Action Plan Summary</h3>
+      <canvas id="chartActions"></canvas>
     </div>
   </div>
 
@@ -245,33 +245,33 @@
         }]
       });
 
-      // New: Inventory Value Trend
-      const monthlyValue = {};
-      rawData.forEach(d => {
-        if (!d.value || !d.date) return;
-        monthlyValue[d.date] = (monthlyValue[d.date] || 0) + d.value;
+      // Dashboard: Insights
+      const insightCategories = { 'Critical': 0, 'Warning': 0, 'Normal': 0 };
+      data.forEach(d => {
+        if (d.insight === 'Critical') insightCategories['Critical']++;
+        else if (d.insight === 'Warning') insightCategories['Warning']++;
+        else insightCategories['Normal']++;
       });
-      drawOrUpdateChart('chartValueTrend', 'line', {
-        labels: Object.keys(monthlyValue),
+      drawOrUpdateChart('chartInsights', 'polarArea', {
+        labels: Object.keys(insightCategories),
         datasets: [{
-          label: 'Inventory Value',
-          data: Object.values(monthlyValue),
-          borderColor: '#0d6efd',
-          fill: false
+          data: Object.values(insightCategories),
+          backgroundColor: ['#dc3545', '#ffc107', '#28a745']
         }]
       });
 
-      // New: Overstock vs Understock
-      let over = 0, under = 0;
+      // Dashboard: Action Plans
+      const actionPlans = {};
       data.forEach(d => {
-        if (d.stock_status === 'Overstock') over++;
-        else if (d.stock_status === 'Understock') under++;
+        const a = d.action || 'No Action';
+        actionPlans[a] = (actionPlans[a] || 0) + 1;
       });
-      drawOrUpdateChart('chartStockLevel', 'doughnut', {
-        labels: ['Overstock', 'Understock'],
+      drawOrUpdateChart('chartActions', 'bar', {
+        labels: Object.keys(actionPlans),
         datasets: [{
-          data: [over, under],
-          backgroundColor: ['#6610f2', '#e83e8c']
+          label: 'จำนวนการดำเนินการ',
+          data: Object.values(actionPlans),
+          backgroundColor: '#0dcaf0'
         }]
       });
     }
