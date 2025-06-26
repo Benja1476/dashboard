@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -97,7 +98,6 @@
     let rawData = [];
     let charts = {};
 
-    // สำหรับแปลง Turnover เป็นชื่อภาษาไทย
     const turnoverLabelMap = {
       'Monthly': 'รายเดือน',
       'Quarterly': 'รายไตรมาส',
@@ -108,7 +108,7 @@
 
     async function loadData() {
       try {
-        const res = await fetch('data.json');
+        const res = await fetch('data_cleaned_valid.json');
         rawData = await res.json();
 
         const months = [...new Set(rawData.map(d => d.date))].sort();
@@ -133,20 +133,17 @@
     function updateDashboard(month) {
       const data = rawData.filter(d => d.date === month);
 
-      // Top 10 Inventory
       const topTable = document.querySelector('#topTable tbody');
       topTable.innerHTML = data
         .sort((a,b) => b.qty - a.qty)
         .slice(0, 10)
         .map(r => `<tr><td>${r.item}</td><td>${r.qty}</td></tr>`).join('');
 
-      // Strategic Recommendation (Top 5)
       const recTable = document.querySelector('#recTable tbody');
       recTable.innerHTML = data
         .slice(0, 5)
         .map(r => `<tr><td>${r.item}</td><td>${r.action || '-'}</td></tr>`).join('');
 
-      // ABC Category chart
       const abcCount = {A:0, B:0, C:0};
       data.forEach(d => {
         if (d.category) abcCount[d.category] = (abcCount[d.category] || 0) + 1;
@@ -159,11 +156,11 @@
         }]
       });
 
-      // DOI Distribution (กลุ่มคำ)
       const doiGroup = {};
       data.forEach(d => {
-        const key = d.doi || 'ไม่ระบุ';
-        doiGroup[key] = (doiGroup[key] || 0) + 1;
+        const doi = isNaN(d.doi) ? "ไม่ระบุ" : +d.doi;
+        const group = typeof doi === 'number' && !isNaN(doi) ? `DOI ${Math.round(doi)}` : doi;
+        doiGroup[group] = (doiGroup[group] || 0) + 1;
       });
       drawOrUpdateChart('chartDOI', 'bar', {
         labels: Object.keys(doiGroup),
@@ -174,7 +171,6 @@
         }]
       });
 
-      // Turnover Rate (กลุ่มคำ + แสดงภาษาไทย)
       const turnoverGroup = {};
       data.forEach(d => {
         const key = d.turnover || 'ไม่ระบุ';
@@ -189,20 +185,20 @@
         }]
       });
 
-      // FSN Category chart
-      const fsnCount = {Fast:0, Slow:0, "Non-Moving":0};
+      const fsnMap = { F: "Fast", S: "Slow", N: "Non-Moving", "ไม่ระบุ": "ไม่ระบุ" };
+      const fsnCount = { Fast: 0, Slow: 0, "Non-Moving": 0, "ไม่ระบุ": 0 };
       data.forEach(d => {
-        if (d.fsn) fsnCount[d.fsn] = (fsnCount[d.fsn] || 0) + 1;
+        const label = fsnMap[d.fsn] || "ไม่ระบุ";
+        fsnCount[label]++;
       });
       drawOrUpdateChart('chartFSN', 'pie', {
-        labels: ['Fast', 'Slow', 'Non-Moving'],
+        labels: Object.keys(fsnCount),
         datasets: [{
-          data: [fsnCount.Fast, fsnCount.Slow, fsnCount["Non-Moving"]],
-          backgroundColor: ['#20c997', '#fd7e14', '#6c757d']
+          data: Object.values(fsnCount),
+          backgroundColor: ['#20c997', '#fd7e14', '#6c757d', '#adb5bd']
         }]
       });
 
-      // Aging Inventory chart
       const agingRanges = ['0-90 วัน', '91-180 วัน', '181-360 วัน', '360+'];
       const agingCounts = [0, 0, 0, 0];
       data.forEach(d => {
@@ -245,7 +241,7 @@
       loadData();
     });
 
-    loadData(); // เรียกครั้งแรกเมื่อเปิดหน้า
+    loadData();
   </script>
 </body>
 </html>
