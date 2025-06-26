@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <title>iStockView – Compact Dashboard</title>
+  <title>iStockView – Compact Strategic Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -60,6 +60,9 @@
     th {
       background-color: #0d6efd;
       color: white;
+    }
+    #tableDOITrend th {
+      background-color: #20c997;
     }
     @media print {
       body {
@@ -122,8 +125,13 @@
     </div>
 
     <div class="card" style="grid-column: span 4;">
-      <h3>Action Plan Summary</h3>
-      <canvas id="chartActions"></canvas>
+      <h3>📊 DOI Trend Table</h3>
+      <table id="tableDOITrend">
+        <thead>
+          <tr><th>Item</th><th>DOI</th><th>Category</th><th>Turnover</th><th>Action</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 
@@ -131,6 +139,7 @@
     let rawData = [];
     let charts = {};
     let months = [];
+
     const turnoverLabelMap = {
       'Monthly': 'รายเดือน',
       'Quarterly': 'รายไตรมาส',
@@ -143,33 +152,45 @@
       try {
         const res = await fetch('https://raw.githubusercontent.com/Benja1476/dashboard/5c26e64ebee875a295380b00559c4e194737f849/data.json');
         rawData = await res.json();
+
         const selector = document.getElementById('monthSelector');
         selector.innerHTML = "";
+
         months = [...new Set(rawData.map(d => d.date))].sort();
+
         months.forEach(m => {
           const opt = document.createElement('option');
           opt.value = m;
           opt.textContent = m;
           selector.appendChild(opt);
         });
+
         selector.onchange = () => updateDashboard(selector.value);
         if (!selector.value && months.length > 0) {
           selector.value = months[0];
         }
+
         updateDashboard(selector.value);
-      } catch (e) {
-        alert("โหลดข้อมูลล้มเหลว: " + e);
+      } catch (error) {
+        alert("โหลดข้อมูลล้มเหลว: " + error);
       }
     }
 
     function updateDashboard(month) {
       const data = rawData.filter(d => d.date === month);
-      document.querySelector('#topTable tbody').innerHTML = data.sort((a,b) => b.qty - a.qty).slice(0,10).map(r => `<tr><td>${r.item}</td><td>${r.qty}</td></tr>`).join('');
-      document.querySelector('#recTable tbody').innerHTML = data.slice(0,5).map(r => `<tr><td>${r.item}</td><td>${r.action || '-'}</td></tr>`).join('');
-      
+
+      document.querySelector('#topTable tbody').innerHTML = data
+        .sort((a,b) => b.qty - a.qty)
+        .slice(0,10)
+        .map(r => `<tr><td>${r.item}</td><td>${r.qty}</td></tr>`).join('');
+
+      document.querySelector('#recTable tbody').innerHTML = data
+        .slice(0,5)
+        .map(r => `<tr><td>${r.item}</td><td>${r.action || '-'}</td></tr>`).join('');
+
       const abc = {A:0,B:0,C:0}; data.forEach(d => { if (d.category) abc[d.category]++ });
       drawOrUpdateChart('chartABC', 'doughnut', { labels: ['A','B','C'], datasets: [{ data: [abc.A, abc.B, abc.C], backgroundColor: ['#28a745','#ffc107','#dc3545'] }] });
-      
+
       drawOrUpdateChart('chartDOI', 'line', {
         labels: data.map(d => d.item),
         datasets: [{ label: 'DOI', data: data.map(d => d.doi || 0), borderColor: '#17a2b8', tension: 0.3 }]
@@ -205,11 +226,18 @@
         datasets: [{ data: Object.values(insights), backgroundColor: ['#198754','#ffc107','#dc3545'] }]
       });
 
-      const plans = {}; data.forEach(d => { const a = d.action || 'No Action'; plans[a] = (plans[a]||0)+1 });
-      drawOrUpdateChart('chartActions', 'bar', {
-        labels: Object.keys(plans),
-        datasets: [{ label:'Actions', data: Object.values(plans), backgroundColor:'#0dcaf0' }]
-      });
+      const tableDOI = document.querySelector('#tableDOITrend tbody');
+      tableDOI.innerHTML = data
+        .sort((a, b) => (b.doi || 0) - (a.doi || 0))
+        .map(d => `
+          <tr>
+            <td>${d.item}</td>
+            <td>${d.doi ?? '-'}</td>
+            <td>${d.category || '-'}</td>
+            <td>${d.turnover || '-'}</td>
+            <td>${d.action || '-'}</td>
+          </tr>
+        `).join('');
     }
 
     function drawOrUpdateChart(id, type, data) {
