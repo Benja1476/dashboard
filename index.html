@@ -5,44 +5,58 @@
   <title>iStockView – AI Strategic Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: sans-serif; margin: 20px; background: #f8f9fa; }
-    h2 { text-align: center; color: #333; }
-    .controls { margin-bottom: 10px; }
-    button {
-      margin-left: 10px;
-      padding: 5px 10px;
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: linear-gradient(to right, #f8f9fa, #e3f2fd);
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+    .controls {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    select, button {
       font-size: 1rem;
-      cursor: pointer;
+      padding: 8px 12px;
+      margin-left: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
     }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 20px;
-      margin-top: 20px;
     }
     .card {
       background: white;
-      padding: 15px;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     }
     table {
       width: 100%;
       border-collapse: collapse;
+      margin-top: 10px;
     }
     th, td {
-      border: 1px solid #ccc;
+      border: 1px solid #dee2e6;
       padding: 8px;
       text-align: center;
     }
     th {
-      background-color: #007bff;
+      background-color: #0d6efd;
       color: white;
     }
   </style>
 </head>
 <body>
-  <h2>Dashboard พร้อม Refresh</h2>
+  <h2>iStockView – AI Strategic Dashboard</h2>
 
   <div class="controls">
     <label for="monthSelector">เลือกเดือน:</label>
@@ -91,6 +105,18 @@
       <h3>Aging Inventory</h3>
       <canvas id="chartAging"></canvas>
     </div>
+
+    <!-- New Dashboard: Inventory Value Trend -->
+    <div class="card" style="grid-column: span 2">
+      <h3>Inventory Value Trend</h3>
+      <canvas id="chartValueTrend"></canvas>
+    </div>
+
+    <!-- New Dashboard: Overstock vs Understock -->
+    <div class="card">
+      <h3>Overstock vs Understock</h3>
+      <canvas id="chartStockLevel"></canvas>
+    </div>
   </div>
 
   <script>
@@ -132,27 +158,20 @@
     function updateDashboard(month) {
       const data = rawData.filter(d => d.date === month);
 
-      const topTable = document.querySelector('#topTable tbody');
-      topTable.innerHTML = data
+      document.querySelector('#topTable tbody').innerHTML = data
         .sort((a,b) => b.qty - a.qty)
         .slice(0, 10)
         .map(r => `<tr><td>${r.item}</td><td>${r.qty}</td></tr>`).join('');
 
-      const recTable = document.querySelector('#recTable tbody');
-      recTable.innerHTML = data
+      document.querySelector('#recTable tbody').innerHTML = data
         .slice(0, 5)
         .map(r => `<tr><td>${r.item}</td><td>${r.action || '-'}</td></tr>`).join('');
 
       const abcCount = {A:0, B:0, C:0};
-      data.forEach(d => {
-        if (d.category) abcCount[d.category] = (abcCount[d.category] || 0) + 1;
-      });
+      data.forEach(d => { if (d.category) abcCount[d.category] = (abcCount[d.category] || 0) + 1; });
       drawOrUpdateChart('chartABC', 'doughnut', {
         labels: ['A', 'B', 'C'],
-        datasets: [{
-          data: [abcCount.A, abcCount.B, abcCount.C],
-          backgroundColor: ['#28a745', '#ffc107', '#dc3545']
-        }]
+        datasets: [{ data: [abcCount.A, abcCount.B, abcCount.C], backgroundColor: ['#28a745', '#ffc107', '#dc3545'] }]
       });
 
       const doiGroup = {};
@@ -163,11 +182,7 @@
       });
       drawOrUpdateChart('chartDOI', 'bar', {
         labels: Object.keys(doiGroup),
-        datasets: [{
-          label: 'จำนวนรายการ',
-          data: Object.values(doiGroup),
-          backgroundColor: '#17a2b8'
-        }]
+        datasets: [{ label: 'จำนวนรายการ', data: Object.values(doiGroup), backgroundColor: '#17a2b8' }]
       });
 
       const turnoverGroup = {};
@@ -178,24 +193,15 @@
       const turnoverLabels = Object.keys(turnoverGroup).map(k => turnoverLabelMap[k] || k);
       drawOrUpdateChart('chartTurnover', 'doughnut', {
         labels: turnoverLabels,
-        datasets: [{
-          data: Object.values(turnoverGroup),
-          backgroundColor: ['#007bff', '#ffc107', '#28a745', '#dc3545', '#6c757d']
-        }]
+        datasets: [{ data: Object.values(turnoverGroup), backgroundColor: ['#007bff', '#ffc107', '#28a745', '#dc3545', '#6c757d'] }]
       });
 
       const fsnMap = { F: "Fast", S: "Slow", N: "Non-Moving", "ไม่ระบุ": "ไม่ระบุ" };
       const fsnCount = { Fast: 0, Slow: 0, "Non-Moving": 0, "ไม่ระบุ": 0 };
-      data.forEach(d => {
-        const label = fsnMap[d.fsn] || "ไม่ระบุ";
-        fsnCount[label]++;
-      });
+      data.forEach(d => { const label = fsnMap[d.fsn] || "ไม่ระบุ"; fsnCount[label]++; });
       drawOrUpdateChart('chartFSN', 'pie', {
         labels: Object.keys(fsnCount),
-        datasets: [{
-          data: Object.values(fsnCount),
-          backgroundColor: ['#20c997', '#fd7e14', '#6c757d', '#adb5bd']
-        }]
+        datasets: [{ data: Object.values(fsnCount), backgroundColor: ['#20c997', '#fd7e14', '#6c757d', '#adb5bd'] }]
       });
 
       const agingRanges = ['0-90 วัน', '91-180 วัน', '181-360 วัน', '360+'];
@@ -208,11 +214,22 @@
       });
       drawOrUpdateChart('chartAging', 'bar', {
         labels: agingRanges,
-        datasets: [{
-          label: 'จำนวนรายการ',
-          data: agingCounts,
-          backgroundColor: '#6f42c1'
-        }]
+        datasets: [{ label: 'จำนวนรายการ', data: agingCounts, backgroundColor: '#6f42c1' }]
+      });
+
+      // New Dashboard: Inventory Value Trend (fake data generation)
+      const valueTrend = months.map(m => rawData.filter(d => d.date === m).reduce((sum, d) => sum + (d.qty * (d.price || 1)), 0));
+      drawOrUpdateChart('chartValueTrend', 'line', {
+        labels: months,
+        datasets: [{ label: 'Inventory Value', data: valueTrend, fill: true, backgroundColor: 'rgba(13,110,253,0.2)', borderColor: '#0d6efd' }]
+      });
+
+      // New Dashboard: Overstock vs Understock
+      const over = data.filter(d => d.stock_status === 'Overstock').length;
+      const under = data.filter(d => d.stock_status === 'Understock').length;
+      drawOrUpdateChart('chartStockLevel', 'doughnut', {
+        labels: ['Overstock', 'Understock'],
+        datasets: [{ data: [over, under], backgroundColor: ['#6610f2', '#e83e8c'] }]
       });
     }
 
@@ -235,11 +252,7 @@
       }
     }
 
-    document.getElementById("refreshBtn").addEventListener("click", () => {
-      console.log("🔁 Refresh triggered");
-      loadData();
-    });
-
+    document.getElementById("refreshBtn").addEventListener("click", () => loadData());
     loadData();
   </script>
 </body>
