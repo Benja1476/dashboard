@@ -95,11 +95,16 @@
 
   <div class="scroll-container" id="dashboard">
     <div class="card"><h3>📋 DOI Table</h3><table id="tableDOI"><thead><tr><th>Item</th><th>DOI</th><th>Category</th><th>Turnover</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+    <div class="card">
+      <h3>📈 ปัญหาโดดเด่น (DOI > 180)</h3>
+      <canvas id="chartCritical"></canvas>
+    </div>
   </div>
 
   <script>
     let rawData = [];
     let currentTheme = 'light';
+    let criticalChart;
 
     async function loadData() {
       const res = await fetch('https://raw.githubusercontent.com/Benja1476/dashboard/5c26e64ebee875a295380b00559c4e194737f849/data.json');
@@ -125,6 +130,26 @@
           <td>${d.turnover || '-'}</td>
           <td>${d.action || '-'}</td>
         </tr>`).join('');
+
+      const criticalItems = data.filter(d => (d.doi || 0) > 180).sort((a,b) => b.doi - a.doi).slice(0, 10);
+      const ctx = document.getElementById('chartCritical').getContext('2d');
+      if (criticalChart) criticalChart.destroy();
+      criticalChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: criticalItems.map(d => d.item),
+          datasets: [{
+            label: 'DOI > 180',
+            data: criticalItems.map(d => d.doi),
+            backgroundColor: '#dc3545'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
     }
 
     document.getElementById("refreshBtn").onclick = updateDashboard;
