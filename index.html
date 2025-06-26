@@ -97,50 +97,232 @@
   </div>
 
   <div class="grid" id="dashboardGrid">
-    <!-- Cards and charts will go here -->
+    <div class="card">
+      <h3>ABC Category</h3>
+      <canvas id="chartABC"></canvas>
+    </div>
+    <div class="card">
+      <h3>DOI Trend</h3>
+      <canvas id="chartDOI"></canvas>
+    </div>
+    <div class="card">
+      <h3>Turnover Rate</h3>
+      <canvas id="chartTurnover"></canvas>
+    </div>
+    <div class="card">
+      <h3>FSN Category</h3>
+      <canvas id="chartFSN"></canvas>
+    </div>
+    <div class="card" style="grid-column: span 2">
+      <h3>Aging Inventory</h3>
+      <canvas id="chartAging"></canvas>
+    </div>
+    <div class="card" style="grid-column: span 2">
+      <h3>Inventory Insights</h3>
+      <canvas id="chartInsights"></canvas>
+    </div>
+    <div class="card">
+      <h3>Action Plan Summary</h3>
+      <table id="tableActions">
+        <thead><tr><th>Action</th><th>จำนวน</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Top 10 Inventory</h3>
+      <table id="topTable">
+        <thead><tr><th>Item</th><th>Qty</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
   <script>
-    let rawData = [], charts = {}, months = [];
-    const settingsKey = 'dashboardSettings';
+    let rawData = [];
+    let charts = {};
+    let months = [];
 
-    function saveSettings() {
-      localStorage.setItem(settingsKey, JSON.stringify({
-        filter: document.getElementById('filterSelect').value,
-        doiMin: document.getElementById('doiMin').value,
-        agingMax: document.getElementById('agingMax').value,
-        month: document.getElementById('monthSelector').value,
-        dark: document.body.classList.contains('dark')
-      }));
-    }
-
-    function loadSettings() {
-      const s = JSON.parse(localStorage.getItem(settingsKey));
-      if (s) {
-        document.getElementById('filterSelect').value = s.filter;
-        document.getElementById('doiMin').value = s.doiMin;
-        document.getElementById('agingMax').value = s.agingMax;
-        document.getElementById('monthSelector').value = s.month;
-        if (s.dark) document.body.classList.add('dark');
+    function drawOrUpdateChart(id, type, data) {
+      if (charts[id]) {
+        charts[id].data = data;
+        charts[id].update();
+      } else {
+        charts[id] = new Chart(document.getElementById(id), {
+          type,
+          data,
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: true, position: 'bottom' },
+              tooltip: { enabled: true }
+            }
+          }
+        });
       }
     }
 
     async function loadData() {
-      const res = await fetch('https://raw.githubusercontent.com/Benja1476/dashboard/5c26e64ebee875a295380b00559c4e194737f849/data.json');
-      rawData = await res.json();
-      const sel = document.getElementById('monthSelector');
-      sel.innerHTML = '';
-      months = [...new Set(rawData.map(d => d.date))].sort();
-      months.forEach(m => sel.innerHTML += `<option value="${m}">${m}</option>`);
-      loadSettings();
-      updateDashboard();
+      try {
+        const res = await fetch('https://raw.githubusercontent.com/Benja1476/dashboard/5c26e64ebee875a295380b00559c4e194737f849/data.json');
+        rawData = await res.json();
+
+        const selector = document.getElementById('monthSelector');
+        selector.innerHTML = "";
+        months = [...new Set(rawData.map(d => d.date))].sort();
+        months.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m;
+          selector.appendChild(opt);
+        });
+
+        if (!selector.value && months.length > 0) {
+          selector.value = months[0];
+        }
+
+        updateDashboard();
+
+      } catch (error) {
+        alert("โหลดข้อมูลล้มเหลว: " + error);
+      }
     }
 
     function updateDashboard() {
-      saveSettings();
-      // Dashboard update logic (same as before)
+      const month = document.getElementById('monthSelector').value;
+      const filter = document.getElementById('filterSelect').value;
+      const doiMin = Number(document.getElementById('doiMin').value);
+      const agingMax = Number(document.getElementById('agingMax').value);
+
+      let data = rawData.filter(d => d.date === month);
+
+      // Filter by category
+      if (filter !== 'all') {
+        if (['A','B','C'].includes(filter)) {
+          data = data.filter(d => d.category === filter);
+        } else if (['Fast','Slow','Non-Moving'].includes(filter)) {
+          const fsnMap = { 'Fast': 'F', 'Slow': 'S', 'Non-Moving': 'N' };
+          data = data.filter(d => d.fsn === fsnMap[filter]);
+        }
+      }
+
+      // Filter by DOI and Aging
+      data = data.filter(d => (d.doi >= doiMin) && (d.aging <= agingMax));
+
+      // Top 10 Inventory Table
+      const topTableBody = document.querySelector('#topTable tbody');
+      topTableBody.innerHTML = data
+        .sort((a,b) => b.qty - a.qty)
+        .slice(0, 10)
+        .map(r => `<tr><td>${r.item}</td><td>${r.qty}</td></tr>`).join('');
+
+      // Action Plan Summary Table
+      const actionCounts = {};
+      data.forEach(d => {
+        const act = d.action || 'No Action';
+        actionCounts[act] = (actionCounts[act] || 0) + 1;
+      });
+      const actionTbody = document.querySelector('#tableActions tbody');
+      actionTbody.innerHTML = Object.entries(actionCounts)
+        .map(([act, count]) => `<tr><td>${act}</td><td>${count}</td></tr>`).join('');
+
+      // ABC Category Chart
+      const abcCount = {A:0, B:0, C:0};
+      data.forEach(d => {
+        if (d.category) abcCount[d.category] = (abcCount[d.category] || 0) + 1;
+      });
+      drawOrUpdateChart('chartABC', 'doughnut', {
+        labels: ['A', 'B', 'C'],
+        datasets: [{
+          data: [abcCount.A, abcCount.B, abcCount.C],
+          backgroundColor: ['#28a745', '#ffc107', '#dc3545']
+        }]
+      });
+
+      // DOI Trend Chart
+      const doiValues = data.map(d => d.doi || 0);
+      const doiLabels = data.map(d => d.item);
+      drawOrUpdateChart('chartDOI', 'line', {
+        labels: doiLabels,
+        datasets: [{
+          label: 'Days of Inventory (DOI)',
+          data: doiValues,
+          fill: false,
+          borderColor: '#17a2b8',
+          tension: 0.3
+        }]
+      });
+
+      // Turnover Rate Chart
+      const turnoverGroup = {};
+      data.forEach(d => {
+        const key = d.turnover || 'ไม่ระบุ';
+        turnoverGroup[key] = (turnoverGroup[key] || 0) + 1;
+      });
+      const turnoverLabelMap = {
+        'Monthly': 'รายเดือน',
+        'Quarterly': 'รายไตรมาส',
+        'Yearly': 'รายปี',
+        'Weekly': 'รายสัปดาห์',
+        'ไม่ระบุ': 'ไม่ระบุ'
+      };
+      const turnoverLabels = Object.keys(turnoverGroup).map(k => turnoverLabelMap[k] || k);
+      drawOrUpdateChart('chartTurnover', 'doughnut', {
+        labels: turnoverLabels,
+        datasets: [{
+          data: Object.values(turnoverGroup),
+          backgroundColor: ['#007bff', '#ffc107', '#28a745', '#dc3545', '#6c757d']
+        }]
+      });
+
+      // FSN Category Chart
+      const fsnMap = { F: "Fast", S: "Slow", N: "Non-Moving" };
+      const fsnCount = { Fast: 0, Slow: 0, "Non-Moving": 0 };
+      data.forEach(d => {
+        const label = fsnMap[d.fsn] || null;
+        if (label) fsnCount[label]++;
+      });
+      drawOrUpdateChart('chartFSN', 'pie', {
+        labels: Object.keys(fsnCount),
+        datasets: [{
+          data: Object.values(fsnCount),
+          backgroundColor: ['#20c997', '#fd7e14', '#6c757d']
+        }]
+      });
+
+      // Aging Inventory Chart
+      const agingRanges = ['0-90 วัน', '91-180 วัน', '181-360 วัน', '360+ วัน'];
+      const agingCounts = [0, 0, 0, 0];
+      data.forEach(d => {
+        if (d.aging <= 90) agingCounts[0]++;
+        else if (d.aging <= 180) agingCounts[1]++;
+        else if (d.aging <= 360) agingCounts[2]++;
+        else agingCounts[3]++;
+      });
+      drawOrUpdateChart('chartAging', 'bar', {
+        labels: agingRanges,
+        datasets: [{
+          label: 'จำนวนรายการ',
+          data: agingCounts,
+          backgroundColor: '#6f42c1'
+        }]
+      });
+
+      // Inventory Insights Chart
+      const insights = { 'Fast': 0, 'Slow': 0, 'Non-Moving': 0 };
+      data.forEach(d => {
+        const key = fsnMap[d.fsn] || null;
+        if (key && insights[key] !== undefined) insights[key]++;
+      });
+      drawOrUpdateChart('chartInsights', 'polarArea', {
+        labels: Object.keys(insights),
+        datasets: [{
+          data: Object.values(insights),
+          backgroundColor: ['#198754', '#ffc107', '#dc3545']
+        }]
+      });
     }
 
+    // ปุ่มเคลียร์
     function resetFilters() {
       document.getElementById('filterSelect').value = 'all';
       document.getElementById('doiMin').value = 0;
@@ -148,28 +330,130 @@
       updateDashboard();
     }
 
-    document.getElementById('clearBtn').onclick = resetFilters;
-    document.getElementById('toggleGraphsBtn').onclick = () => {
-      document.getElementById('dashboardGrid').classList.toggle('hidden');
-    };
-    document.getElementById('toggleThemeBtn').onclick = () => {
+    // ปุ่มซ่อน/แสดงกราฟ
+    function toggleGraphs() {
+      const grid = document.getElementById('dashboardGrid');
+      grid.classList.toggle('hidden');
+    }
+
+    // เปลี่ยนธีม
+    function toggleTheme() {
       document.body.classList.toggle('dark');
-      saveSettings();
-    };
+    }
 
-    document.getElementById('monthSelector').onchange = updateDashboard;
-    document.getElementById('filterSelect').onchange = updateDashboard;
-    document.getElementById('doiMin').oninput = updateDashboard;
-    document.getElementById('agingMax').oninput = updateDashboard;
+    // Export CSV
+    function exportCSV() {
+      const month = document.getElementById('monthSelector').value;
+      const filter = document.getElementById('filterSelect').value;
+      const doiMin = Number(document.getElementById('doiMin').value);
+      const agingMax = Number(document.getElementById('agingMax').value);
+      let data = rawData.filter(d => d.date === month);
 
-    document.getElementById('refreshBtn').onclick = updateDashboard;
-    document.getElementById('exportCsvBtn').onclick = exportCSV;
-    document.getElementById('exportPdfBtn').onclick = exportPDF;
+      if (filter !== 'all') {
+        if (['A','B','C'].includes(filter)) {
+          data = data.filter(d => d.category === filter);
+        } else if (['Fast','Slow','Non-Moving'].includes(filter)) {
+          const fsnMap = { 'Fast': 'F', 'Slow': 'S', 'Non-Moving': 'N' };
+          data = data.filter(d => d.fsn === fsnMap[filter]);
+        }
+      }
+      data = data.filter(d => (d.doi >= doiMin) && (d.aging <= agingMax));
 
-    function exportCSV() { /* as before */ }
-    function exportPDF() { /* as before */ }
+      let csv = 'Item,Qty,Category,DOI,Aging,Turnover,FSN,Action\\n';
+      data.forEach(d => {
+        csv += `"${d.item}",${d.qty},"${d.category}",${d.doi},${d.aging},"${d.turnover}","${d.fsn}","${d.action || ''}"\\n`;
+      });
+      const blob = new Blob([csv], {type: 'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `iStockView_${month}.csv`;
+      a.click();
+    }
 
-    loadData();
+    // Export PDF (ใช้ jsPDF + AutoTable)
+    function exportPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const month = document.getElementById('monthSelector').value;
+
+      const filter = document.getElementById('filterSelect').value;
+      const doiMin = Number(document.getElementById('doiMin').value);
+      const agingMax = Number(document.getElementById('agingMax').value);
+      let data = rawData.filter(d => d.date === month);
+
+      if (filter !== 'all') {
+        if (['A','B','C'].includes(filter)) {
+          data = data.filter(d => d.category === filter);
+        } else if (['Fast','Slow','Non-Moving'].includes(filter)) {
+          const fsnMap = { 'Fast': 'F', 'Slow': 'S', 'Non-Moving': 'N' };
+          data = data.filter(d => d.fsn === fsnMap[filter]);
+        }
+      }
+      data = data.filter(d => (d.doi >= doiMin) && (d.aging <= agingMax));
+
+      const rows = data.map(d => [
+        d.item, d.qty, d.category, d.doi, d.aging, d.turnover, d.fsn, d.action || ''
+      ]);
+      doc.text(`iStockView รายงาน เดือน ${month}`, 10, 10);
+      doc.autoTable({
+        head: [['Item', 'Qty', 'Category', 'DOI', 'Aging', 'Turnover', 'FSN', 'Action']],
+        body: rows,
+        startY: 20,
+        styles: { fontSize: 7 }
+      });
+      doc.save(`iStockView_${month}.pdf`);
+    }
+
+    // บันทึกค่าล่าสุดใน localStorage
+    function saveSettings() {
+      const settings = {
+        month: document.getElementById('monthSelector').value,
+        filter: document.getElementById('filterSelect').value,
+        doiMin: document.getElementById('doiMin').value,
+        agingMax: document.getElementById('agingMax').value,
+        darkMode: document.body.classList.contains('dark'),
+        graphsHidden: document.getElementById('dashboardGrid').classList.contains('hidden'),
+      };
+      localStorage.setItem('iStockViewSettings', JSON.stringify(settings));
+    }
+    // โหลดค่าจาก localStorage
+    function loadSettings() {
+      const settings = JSON.parse(localStorage.getItem('iStockViewSettings'));
+      if (settings) {
+        if (months.includes(settings.month)) {
+          document.getElementById('monthSelector').value = settings.month;
+        }
+        document.getElementById('filterSelect').value = settings.filter || 'all';
+        document.getElementById('doiMin').value = settings.doiMin || 0;
+        document.getElementById('agingMax').value = settings.agingMax || 999;
+        if (settings.darkMode) document.body.classList.add('dark');
+        else document.body.classList.remove('dark');
+        if (settings.graphsHidden) document.getElementById('dashboardGrid').classList.add('hidden');
+        else document.getElementById('dashboardGrid').classList.remove('hidden');
+      }
+    }
+
+    document.getElementById('monthSelector').addEventListener('change', () => { updateDashboard(); saveSettings(); });
+    document.getElementById('filterSelect').addEventListener('change', () => { updateDashboard(); saveSettings(); });
+    document.getElementById('doiMin').addEventListener('input', () => { updateDashboard(); saveSettings(); });
+    document.getElementById('agingMax').addEventListener('input', () => { updateDashboard(); saveSettings(); });
+
+    document.getElementById('refreshBtn').addEventListener('click', () => loadData());
+    document.getElementById('clearBtn').addEventListener('click', () => { resetFilters(); saveSettings(); });
+    document.getElementById('toggleGraphsBtn').addEventListener('click', () => { toggleGraphs(); saveSettings(); });
+    document.getElementById('toggleThemeBtn').addEventListener('click', () => { toggleTheme(); saveSettings(); });
+
+    document.getElementById('exportCsvBtn').addEventListener('click', () => exportCSV());
+    document.getElementById('exportPdfBtn').addEventListener('click', () => exportPDF());
+
+    window.addEventListener('beforeunload', saveSettings);
+
+    async function init() {
+      await loadData();
+      loadSettings();
+      updateDashboard();
+    }
+    init();
   </script>
 </body>
 </html>
