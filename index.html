@@ -2,39 +2,72 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <title>iStockView – Compact Dashboard + Filter + Export</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iStockView – Responsive Strategic Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   <style>
     body { font-family: 'Segoe UI', sans-serif; margin:10px; background:#f4f6f9; }
     h2 { text-align:center; color:#333; font-size:1.6rem; margin-bottom:10px; }
-    .controls { text-align:center; margin-bottom:10px; }
-    button, select { font-size:0.9rem; padding:6px 10px; margin:0 5px; border-radius:5px; border:1px solid #ccc; }
-    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
-    .card { background:#fff; padding:12px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
-    .card h3 { font-size:1rem; margin-bottom:5px; color:#0d6efd; text-align:center; }
-    canvas { max-height:180px; }
-    table { width:100%; border-collapse:collapse; font-size:0.85rem; }
-    th,td { border:1px solid #dee2e6; padding:4px; text-align:center; }
-    th { background-color:#0d6efd; color:white; }
-    #tableDOITrend th { background-color:#20c997; }
-    @media print { body { zoom:70%; } .card { page-break-inside:avoid; } }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    button, select, input {
+      font-size: 0.9rem;
+      padding: 6px 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 10px;
+    }
+    .card {
+      background: #fff;
+      padding: 12px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .card h3 {
+      font-size: 1rem;
+      margin-bottom: 5px;
+      color: #0d6efd;
+      text-align: center;
+    }
+    canvas { max-height: 180px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { border: 1px solid #dee2e6; padding: 4px; text-align: center; }
+    th { background-color: #0d6efd; color: white; }
+    #tableDOITrend th { background-color: #20c997; }
+    @media (max-width: 768px) {
+      h2 { font-size: 1.2rem; }
+      .card canvas { max-height: 150px; }
+    }
   </style>
 </head>
 <body>
-  <h2>iStockView – Dashboard with Filter & Export</h2>
+  <h2>📊 iStockView – Strategic Dashboard</h2>
   <div class="controls">
-    เดือน: <select id="monthSelector"></select>
-    หมวด: <select id="filterSelect">
-      <option value="all">แสดงทั้งหมด</option>
-      <option value="A">Category A</option>
-      <option value="B">Category B</option>
-      <option value="C">Category C</option>
-      <option value="Fast">FSN Fast</option>
-      <option value="Slow">FSN Slow</option>
-      <option value="Non-Moving">FSN Non-Moving</option>
-    </select>
+    <label>เดือน: <select id="monthSelector"></select></label>
+    <label>หมวด:
+      <select id="filterSelect">
+        <option value="all">ทั้งหมด</option>
+        <option value="A">Category A</option>
+        <option value="B">Category B</option>
+        <option value="C">Category C</option>
+        <option value="Fast">FSN Fast</option>
+        <option value="Slow">FSN Slow</option>
+        <option value="Non-Moving">FSN Non-Moving</option>
+      </select>
+    </label>
+    <label>DOI > <input type="number" id="doiMin" value="0" style="width:70px"></label>
+    <label>Aging < <input type="number" id="agingMax" value="999" style="width:70px"></label>
     <button id="refreshBtn">🔄 โหลดใหม่</button>
     <button id="exportCsvBtn">💾 Export CSV</button>
     <button id="exportPdfBtn">📄 Export PDF</button>
@@ -53,62 +86,80 @@
     <div class="card"><h3>Aging Inventory</h3><canvas id="chartAging"></canvas></div>
     <div class="card"><h3>Inventory Insights</h3><canvas id="chartInsights"></canvas></div>
     <div class="card" style="grid-column: span 4;">
-      <h3>📊 DOI Trend Table</h3><table id="tableDOITrend"><thead><tr><th>Item</th><th>DOI</th><th>Category</th><th>Turnover</th><th>Action</th></tr></thead><tbody></tbody></table>
+      <h3>📊 DOI Trend Table</h3>
+      <table id="tableDOITrend">
+        <thead><tr><th>Item</th><th>DOI</th><th>Category</th><th>Turnover</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 
   <script>
-    let rawData=[], charts={}, months=[];
-    async function loadData(){
+    let rawData = [], charts = {}, months = [];
+    async function loadData() {
       const res = await fetch('https://raw.githubusercontent.com/Benja1476/dashboard/5c26e64ebee875a295380b00559c4e194737f849/data.json');
       rawData = await res.json();
       const sel = document.getElementById('monthSelector'); sel.innerHTML='';
-      months = [...new Set(rawData.map(d=>d.date))].sort();
-      months.forEach(m=> sel.innerHTML += `<option value="${m}">${m}</option>`);
-      sel.onchange = updateDashboard;
+      months = [...new Set(rawData.map(d => d.date))].sort();
+      months.forEach(m => sel.innerHTML += `<option value="${m}">${m}</option>`);
+      document.getElementById('refreshBtn').onclick = () => loadData();
       document.getElementById('filterSelect').onchange = updateDashboard;
-      document.getElementById('refreshBtn').onclick = () => { loadData(); };
+      document.getElementById('monthSelector').onchange = updateDashboard;
+      document.getElementById('doiMin').oninput = updateDashboard;
+      document.getElementById('agingMax').oninput = updateDashboard;
       document.getElementById('exportCsvBtn').onclick = exportCSV;
       document.getElementById('exportPdfBtn').onclick = exportPDF;
       updateDashboard();
     }
-    function updateDashboard(){
+
+    function updateDashboard() {
       const month = document.getElementById('monthSelector').value;
       const filter = document.getElementById('filterSelect').value;
-      let data = rawData.filter(d=> d.date === month);
-      if(filter!=='all'){
-        if(['A','B','C'].includes(filter)) data = data.filter(d=>d.category===filter);
-        else data = data.filter(d=> { const map = {F:'Fast',S:'Slow',N:'Non-Moving'}; return map[d.fsn]===filter; });
+      const doiMin = parseFloat(document.getElementById('doiMin').value);
+      const agingMax = parseInt(document.getElementById('agingMax').value);
+
+      let data = rawData.filter(d => d.date === month);
+      if (filter !== 'all') {
+        if(['A','B','C'].includes(filter)) data = data.filter(d => d.category === filter);
+        else data = data.filter(d => ({F:'Fast',S:'Slow',N:'Non-Moving'}[d.fsn]) === filter);
       }
-      document.querySelector('#topTable tbody').innerHTML = data.sort((a,b)=>b.qty-a.qty).slice(0,10)
-        .map(r=>`<tr><td>${r.item}</td><td>${r.qty}</td></tr>`).join('');
-      document.querySelector('#recTable tbody').innerHTML = data.slice(0,5)
-        .map(r=>`<tr><td>${r.item}</td><td>${r.action||'-'}</td></tr>`).join('');
-      drawOrUpdateChart('chartABC','doughnut',{labels:['A','B','C'], datasets:[{data:['A','B','C'].map(c=>data.filter(d=>d.category===c).length), backgroundColor:['#28a745','#ffc107','#dc3545']}]});
-      drawOrUpdateChart('chartDOI','line',{labels:data.map(d=>d.item), datasets:[{label:'DOI', data:data.map(d=>d.doi||0), borderColor:'#17a2b8', tension:0.3}]});
-      const turnoverCount = {}; data.forEach(d=>{ const t=d.turnover||'ไม่ระบุ'; turnoverCount[t]=(turnoverCount[t]||0)+1; });
-      drawOrUpdateChart('chartTurnover','doughnut',{labels:Object.keys(turnoverCount), datasets:[{data:Object.values(turnoverCount), backgroundColor:['#007bff','#ffc107','#28a745','#dc3545','#6c757d']}]});
+      data = data.filter(d => (d.doi || 0) >= doiMin && (d.aging || 0) <= agingMax);
+
+      document.querySelector('#topTable tbody').innerHTML = data.sort((a,b)=>b.qty-a.qty).slice(0,10).map(r=>`<tr><td>${r.item}</td><td>${r.qty}</td></tr>`).join('');
+      document.querySelector('#recTable tbody').innerHTML = data.slice(0,5).map(r=>`<tr><td>${r.item}</td><td>${r.action||'-'}</td></tr>`).join('');
+
+      drawOrUpdateChart('chartABC','doughnut',{labels:['A','B','C'],datasets:[{data:['A','B','C'].map(c=>data.filter(d=>d.category===c).length),backgroundColor:['#28a745','#ffc107','#dc3545']}]});
+      drawOrUpdateChart('chartDOI','line',{labels:data.map(d=>d.item),datasets:[{label:'DOI',data:data.map(d=>d.doi||0),borderColor:'#17a2b8',tension:0.3}]});
+
+      const turnoverCount={}; data.forEach(d=>{ const t=d.turnover||'ไม่ระบุ'; turnoverCount[t]=(turnoverCount[t]||0)+1; });
+      drawOrUpdateChart('chartTurnover','doughnut',{labels:Object.keys(turnoverCount),datasets:[{data:Object.values(turnoverCount),backgroundColor:['#007bff','#ffc107','#28a745','#dc3545','#6c757d']}]});
+
       const fsnMap={F:'Fast',S:'Slow',N:'Non-Moving'}, fsnCount={Fast:0,Slow:0,'Non-Moving':0,'ไม่ระบุ':0};
-      data.forEach(d=> fsnCount[ fsnMap[d.fsn]||'ไม่ระบุ' ]++);
-      drawOrUpdateChart('chartFSN','pie',{labels:Object.keys(fsnCount), datasets:[{data:Object.values(fsnCount), backgroundColor:['#20c997','#fd7e14','#6c757d','#adb5bd']}]});
+      data.forEach(d=> fsnCount[ fsnMap[d.fsn] || 'ไม่ระบุ' ]++);
+      drawOrUpdateChart('chartFSN','pie',{labels:Object.keys(fsnCount),datasets:[{data:Object.values(fsnCount),backgroundColor:['#20c997','#fd7e14','#6c757d','#adb5bd']}]});
+
       const agingCount=[0,0,0,0];
       data.forEach(d=>{ const v=d.aging; agingCount[v<=90?0:v<=180?1:v<=360?2:3]++; });
-      drawOrUpdateChart('chartAging','bar',{labels:['0‑90','91‑180','181‑360','360+'], datasets:[{label:'Aging',data:agingCount, backgroundColor:'#6f42c1'}]});
+      drawOrUpdateChart('chartAging','bar',{labels:['0-90','91-180','181-360','360+'],datasets:[{label:'Aging',data:agingCount,backgroundColor:'#6f42c1'}]});
+
       const insightsCount={Fast:0,Slow:0,'Non-Moving':0};
       data.forEach(d=> { const f = fsnMap[d.fsn]; if(insightsCount[f]!==undefined) insightsCount[f]++; });
-      drawOrUpdateChart('chartInsights','polarArea',{labels:Object.keys(insightsCount), datasets:[{data:Object.values(insightsCount), backgroundColor:['#198754','#ffc107','#dc3545']}]});
-      document.querySelector('#tableDOITrend tbody').innerHTML = data.sort((a,b)=>b.doi-(a.doi))
-        .map(d=>`<tr><td>${d.item}</td><td>${d.doi||'-'}</td><td>${d.category||'-'}</td><td>${d.turnover||'-'}</td><td>${d.action||'-'}</td></tr>`).join('');
+      drawOrUpdateChart('chartInsights','polarArea',{labels:Object.keys(insightsCount),datasets:[{data:Object.values(insightsCount),backgroundColor:['#198754','#ffc107','#dc3545']}]});
+
+      document.querySelector('#tableDOITrend tbody').innerHTML = data.map(d=>`<tr><td>${d.item}</td><td>${d.doi||'-'}</td><td>${d.category||'-'}</td><td>${d.turnover||'-'}</td><td>${d.action||'-'}</td></tr>`).join('');
     }
+
     function drawOrUpdateChart(id,type,data){
-      if(charts[id]) charts[id].data = data, charts[id].update();
-      else charts[id] = new Chart(document.getElementById(id), { type, data, options:{responsive:true, plugins:{legend:{position:'bottom'}, tooltip:{enabled:true}}}});
+      if(charts[id]) { charts[id].data = data; charts[id].update(); }
+      else charts[id] = new Chart(document.getElementById(id),{type,data,options:{responsive:true,plugins:{legend:{position:'bottom'},tooltip:{enabled:true}}}});
     }
+
     function exportCSV(){
-      const rows = Array.from(document.querySelectorAll('#tableDOITrend tr')).map(tr=>Array.from(tr.cells).map(td=>td.innerText).join(','));
-      const csv = rows.join('\n'), blob = new Blob([csv],{type:'text/csv'}), url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download='doi_trend.csv'; a.click(); URL.revokeObjectURL(url);
+      const rows = Array.from(document.querySelectorAll('#tableDOITrend tr')).map(tr => Array.from(tr.cells).map(td => td.innerText).join(','));
+      const csv = rows.join('\n'), blob = new Blob([csv], {type:'text/csv'}), url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'doi_trend.csv'; a.click(); URL.revokeObjectURL(url);
     }
+
     async function exportPDF(){
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({orientation:'landscape'});
