@@ -87,7 +87,7 @@
     </div>
 
     <div class="card">
-      <h3>DOI Distribution</h3>
+      <h3>DOI Trend</h3>
       <canvas id="chartDOI"></canvas>
     </div>
 
@@ -138,8 +138,7 @@
         const selector = document.getElementById('monthSelector');
         selector.innerHTML = "";
 
-        const extractedMonths = [...new Set(rawData.map(d => d.date))].sort();
-        months = extractedMonths;
+        months = [...new Set(rawData.map(d => d.date))].sort();
 
         months.forEach(m => {
           const opt = document.createElement('option');
@@ -185,18 +184,17 @@
         }]
       });
 
-      const doiGroup = {};
-      data.forEach(d => {
-        const doi = isNaN(d.doi) ? "ไม่ระบุ" : +d.doi;
-        const group = typeof doi === 'number' && !isNaN(doi) ? `DOI ${Math.round(doi)}` : doi;
-        doiGroup[group] = (doiGroup[group] || 0) + 1;
-      });
-      drawOrUpdateChart('chartDOI', 'bar', {
-        labels: Object.keys(doiGroup),
+      // DOI Trend
+      const doiValues = data.map(d => d.doi || 0);
+      const doiLabels = data.map(d => d.item);
+      drawOrUpdateChart('chartDOI', 'line', {
+        labels: doiLabels,
         datasets: [{
-          label: 'จำนวนรายการ',
-          data: Object.values(doiGroup),
-          backgroundColor: '#17a2b8'
+          label: 'Days of Inventory (DOI)',
+          data: doiValues,
+          fill: false,
+          borderColor: '#17a2b8',
+          tension: 0.3
         }]
       });
 
@@ -245,22 +243,21 @@
         }]
       });
 
-      // Dashboard: Insights
-      const insightCategories = { 'Critical': 0, 'Warning': 0, 'Normal': 0 };
+      // Inventory Insights from FSN
+      const insights = { 'Fast': 0, 'Slow': 0, 'Non-Moving': 0 };
       data.forEach(d => {
-        if (d.insight === 'Critical') insightCategories['Critical']++;
-        else if (d.insight === 'Warning') insightCategories['Warning']++;
-        else insightCategories['Normal']++;
+        const key = fsnMap[d.fsn] || 'ไม่ระบุ';
+        if (insights[key] !== undefined) insights[key]++;
       });
       drawOrUpdateChart('chartInsights', 'polarArea', {
-        labels: Object.keys(insightCategories),
+        labels: Object.keys(insights),
         datasets: [{
-          data: Object.values(insightCategories),
-          backgroundColor: ['#dc3545', '#ffc107', '#28a745']
+          data: Object.values(insights),
+          backgroundColor: ['#198754', '#ffc107', '#dc3545']
         }]
       });
 
-      // Dashboard: Action Plans
+      // Action Plan Summary
       const actionPlans = {};
       data.forEach(d => {
         const a = d.action || 'No Action';
@@ -269,7 +266,7 @@
       drawOrUpdateChart('chartActions', 'bar', {
         labels: Object.keys(actionPlans),
         datasets: [{
-          label: 'จำนวนการดำเนินการ',
+          label: 'จำนวนคำแนะนำ',
           data: Object.values(actionPlans),
           backgroundColor: '#0dcaf0'
         }]
